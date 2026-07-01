@@ -12,6 +12,15 @@ const COVERS = {
 
 const GENRES = ['Все', 'Фэнтези', 'Романтика', 'Sci-Fi', 'Боевик', 'Культивация', 'Мистика'];
 
+const DOWNLOAD_URL = 'https://functions.poehali.dev/64f8597e-031c-4566-80d8-897a2a159940';
+
+interface DownloadResult {
+  title: string;
+  chapters: number;
+  total_free: number;
+  fileUrl: string;
+}
+
 interface Book {
   id: number;
   title: string;
@@ -38,6 +47,38 @@ const Index = () => {
   const [query, setQuery] = useState('');
   const [liked, setLiked] = useState<number[]>([]);
 
+  const [dlUrl, setDlUrl] = useState('');
+  const [dlLoading, setDlLoading] = useState(false);
+  const [dlError, setDlError] = useState('');
+  const [dlResult, setDlResult] = useState<DownloadResult | null>(null);
+
+  const handleDownload = async () => {
+    setDlError('');
+    setDlResult(null);
+    if (!dlUrl.includes('webnovel.com')) {
+      setDlError('Вставьте ссылку на книгу с webnovel.com');
+      return;
+    }
+    setDlLoading(true);
+    try {
+      const res = await fetch(DOWNLOAD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: dlUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDlError(data.error || 'Не удалось скачать книгу');
+      } else {
+        setDlResult(data);
+      }
+    } catch {
+      setDlError('Ошибка соединения. Попробуйте ещё раз');
+    } finally {
+      setDlLoading(false);
+    }
+  };
+
   const filtered = BOOKS.filter(
     (b) =>
       (genre === 'Все' || b.genre === genre) &&
@@ -60,6 +101,7 @@ const Index = () => {
             <span className="font-display text-xl font-bold tracking-tight">NovelHub</span>
           </div>
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
+            <a href="#download" className="transition-colors hover:text-primary">Скачать</a>
             <a href="#catalog" className="transition-colors hover:text-primary">Каталог</a>
             <a href="#recommend" className="transition-colors hover:text-primary">Рекомендации</a>
             <a href="#about" className="transition-colors hover:text-primary">О проекте</a>
@@ -114,6 +156,74 @@ const Index = () => {
               <Button className="rounded-full px-6">Найти</Button>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Download by link */}
+      <section id="download" className="container -mt-8 relative z-10">
+        <div className="fade-up rounded-3xl border border-primary/30 bg-card p-6 book-glow md:p-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15">
+              <Icon name="Link2" size={22} className="text-primary" />
+            </div>
+            <div>
+              <h2 className="font-display text-xl font-bold md:text-2xl">Скачать книгу по ссылке</h2>
+              <p className="text-sm text-muted-foreground">Вставьте ссылку на книгу с WebNovel — соберём EPUB из бесплатных глав</p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={dlUrl}
+              onChange={(e) => setDlUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !dlLoading && handleDownload()}
+              placeholder="https://www.webnovel.com/book/..."
+              className="h-12 rounded-xl bg-background text-base"
+            />
+            <Button
+              onClick={handleDownload}
+              disabled={dlLoading}
+              className="h-12 gap-2 rounded-xl px-8 text-base"
+            >
+              {dlLoading ? (
+                <><Icon name="Loader2" size={18} className="animate-spin" />Собираем...</>
+              ) : (
+                <><Icon name="Download" size={18} />Скачать</>
+              )}
+            </Button>
+          </div>
+
+          {dlError && (
+            <div className="mt-4 flex items-center gap-2 rounded-xl bg-destructive/15 px-4 py-3 text-sm text-destructive">
+              <Icon name="TriangleAlert" size={16} />
+              {dlError}
+            </div>
+          )}
+
+          {dlResult && (
+            <div className="fade-up mt-4 flex flex-col items-start gap-4 rounded-xl border border-primary/30 bg-primary/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <Icon name="BookCheck" size={28} className="text-primary" />
+                <div>
+                  <p className="font-display text-lg font-bold">{dlResult.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Готово {dlResult.chapters} бесплатных глав из {dlResult.total_free} · формат EPUB
+                  </p>
+                </div>
+              </div>
+              <a href={dlResult.fileUrl} download>
+                <Button className="gap-2 rounded-full px-6">
+                  <Icon name="FileDown" size={16} />
+                  Скачать EPUB
+                </Button>
+              </a>
+            </div>
+          )}
+
+          <p className="mt-4 text-xs text-muted-foreground">
+            <Icon name="Info" size={12} className="mr-1 inline" />
+            Скачиваются только публично доступные бесплатные главы. Уважайте авторские права.
+          </p>
         </div>
       </section>
 
